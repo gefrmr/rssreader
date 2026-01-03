@@ -3,51 +3,129 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Full‑Text RSS Reader</title>
+<title>Full‑Text RSS Reader + Swipe + Enhancements</title>
 
 <style>
+  :root {
+    --bg: #f5f5f5;
+    --card: #ffffff;
+    --text: #000000;
+    --accent: #0078ff;
+  }
+
+  body.dark {
+    --bg: #1e1e1e;
+    --card: #2a2a2a;
+    --text: #ffffff;
+    --accent: #4da3ff;
+  }
+
   body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background: #f5f5f5;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.3s, color 0.3s;
   }
+
   .container {
     max-width: 700px;
     margin: auto;
     padding: 20px;
   }
-  input {
+
+  input, button {
     width: 100%;
     padding: 12px;
     margin-bottom: 10px;
     border-radius: 6px;
     border: 1px solid #ccc;
   }
+
   button {
-    width: 100%;
-    padding: 12px;
-    background: #0078ff;
+    background: var(--accent);
     color: white;
     border: none;
-    border-radius: 6px;
     font-size: 16px;
   }
-  .item {
-    background: white;
-    padding: 15px;
+
+  /* DARK MODE TOGGLE */
+  .toggle {
+    text-align: right;
     margin-bottom: 10px;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
-  .item h3 {
-    margin: 0 0 10px 0;
+  .toggle button {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 14px;
   }
+
+  /* SWIPE CAROUSEL */
+  .carousel-wrapper {
+    position: relative;
+  }
+
+  .carousel {
+    display: flex;
+    overflow-x: scroll;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 20px;
+    padding: 20px 0;
+  }
+
+  .slide {
+    min-width: 90%;
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    scroll-snap-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+
+  .slide img {
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+
+  .slide h3 {
+    margin: 0;
+  }
+
+  /* DOT INDICATORS */
+  .dots {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: #bbb;
+    border-radius: 50%;
+    margin: 4px;
+    transition: background 0.3s;
+  }
+  .dot.active {
+    background: var(--accent);
+  }
+
+  /* ARTICLE */
   .article {
-    background: white;
+    background: var(--card);
     padding: 20px;
     margin-top: 20px;
-    border-radius: 6px;
+    border-radius: 12px;
+    opacity: 0;
+    animation: fadeIn 0.5s forwards;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
   }
 </style>
 
@@ -55,20 +133,40 @@
 <body>
 
 <div class="container">
+
+  <div class="toggle">
+    <button onclick="toggleDarkMode()">🌙 / ☀️</button>
+  </div>
+
   <h1>Full‑Text RSS Reader</h1>
 
   <input id="feedUrl" type="text" placeholder="RSS‑feed URL (bv. https://www.nu.nl/rss)">
   <button onclick="loadFeed()">Laad feed</button>
 
-  <div id="feed"></div>
+  <div class="carousel-wrapper">
+    <div id="carousel" class="carousel"></div>
+    <div id="dots" class="dots"></div>
+  </div>
+
   <div id="article"></div>
+
 </div>
 
 <script>
+let items = [];
+let currentIndex = 0;
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+}
+
 async function loadFeed() {
   const url = document.getElementById("feedUrl").value;
-  const feedContainer = document.getElementById("feed");
-  feedContainer.innerHTML = "Laden...";
+  const carousel = document.getElementById("carousel");
+  const dots = document.getElementById("dots");
+
+  carousel.innerHTML = "Laden...";
+  dots.innerHTML = "";
 
   const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
 
@@ -77,30 +175,85 @@ async function loadFeed() {
     const data = await response.json();
 
     if (!data.items) {
-      feedContainer.innerHTML = "Geen items gevonden.";
+      carousel.innerHTML = "Geen items gevonden.";
       return;
     }
 
-    feedContainer.innerHTML = "";
+    items = data.items;
 
-    data.items.forEach(item => {
-      const div = document.createElement("div");
-      div.className = "item";
-      div.innerHTML = `
+    // Infinite loop: clone first and last items
+    const loopItems = [items[items.length - 1], ...items, items[0]];
+
+    carousel.innerHTML = "";
+    dots.innerHTML = "";
+
+    loopItems.forEach((item, index) => {
+      const slide = document.createElement("div");
+      slide.className = "slide";
+
+      const thumb = item.thumbnail || item.enclosure?.link || "";
+
+      slide.innerHTML = `
+        ${thumb ? `<img src="${thumb}" alt="">` : ""}
         <h3>${item.title}</h3>
-        <button onclick="loadArticle('${encodeURIComponent(item.link)}')">Lees volledig artikel</button>
       `;
-      feedContainer.appendChild(div);
+
+      carousel.appendChild(slide);
     });
 
+    // Dots (only real items)
+    items.forEach((_, i) => {
+      const dot = document.createElement("span");
+      dot.className = "dot" + (i === 0 ? " active" : "");
+      dots.appendChild(dot);
+    });
+
+    // Start at real first slide (index 1)
+    carousel.scrollLeft = carousel.children[0].offsetWidth + 20;
+
+    loadArticle(0);
+
   } catch (err) {
-    feedContainer.innerHTML = "Kon de feed niet laden.";
+    carousel.innerHTML = "Kon de feed niet laden.";
   }
 }
 
-async function loadArticle(url) {
+// Swipe detection + infinite loop logic
+document.getElementById("carousel").addEventListener("scroll", () => {
+  const carousel = document.getElementById("carousel");
+  const slideWidth = carousel.children[0].offsetWidth + 20;
+
+  const rawIndex = Math.round(carousel.scrollLeft / slideWidth);
+
+  // Infinite loop correction
+  if (rawIndex === 0) {
+    carousel.scrollLeft = slideWidth * items.length;
+    return;
+  }
+  if (rawIndex === items.length + 1) {
+    carousel.scrollLeft = slideWidth;
+    return;
+  }
+
+  const index = rawIndex - 1;
+
+  if (index !== currentIndex && items[index]) {
+    currentIndex = index;
+    updateDots(index);
+    loadArticle(index);
+  }
+});
+
+function updateDots(index) {
+  const dots = document.querySelectorAll(".dot");
+  dots.forEach((d, i) => d.classList.toggle("active", i === index));
+}
+
+async function loadArticle(index) {
   const articleContainer = document.getElementById("article");
   articleContainer.innerHTML = "Artikel laden...";
+
+  const url = encodeURIComponent(items[index].link);
 
   try {
     const response = await fetch(`/api/article?url=${url}`);
