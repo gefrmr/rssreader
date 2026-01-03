@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Woorden Beheren – RSS Reader</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+  }
+
+  .container {
+    max-width: 700px;
+    margin: auto;
+    padding: 12px;
+  }
+
+  .nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 4px 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .nav-bar a {
+    text-decoration: none;
+    color: #0078ff;
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+
+  /* INPUT SECTIE */
+  .input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  input {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px; /* Iets groter tegen inzoomen op iOS */
+  }
+
+  button#addBtn {
+    width: auto;
+    padding: 10px 20px;
+    background: #0078ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+
+  /* LIJST MET WOORDEN */
+  .word-list {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 8px;
+  }
+
+  .word-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .word-item:last-child {
+    border-bottom: none;
+  }
+
+  .word-text {
+    font-size: 15px;
+    color: #333;
+  }
+
+  .delete-btn {
+    background: #ff4d4d;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="nav-bar">
+    <a href="index.html">← Terug naar Reader</a>
+    <span>Instellingen</span>
+  </div>
+
+  <h2>Highlight Woorden</h2>
+  <p>Voeg woorden of zinsdelen toe die je wilt laten oplichten in de artikelen.</p>
+
+  <div class="input-group">
+    <input id="wordInput" type="text" placeholder="Bijv. Apple, AI, beurs..." onkeypress="handleKey(event)">
+    <button id="addBtn" onclick="addWord()">Voeg toe</button>
+  </div>
+
+  <div id="wordList" class="word-list">
+    </div>
+</div>
+
+<script>
+  // Initialiseer lijst bij laden
+  document.addEventListener('DOMContentLoaded', renderWords);
+
+  function handleKey(e) {
+    if (e.key === 'Enter') addWord();
+  }
+
+  function renderWords() {
+    const listContainer = document.getElementById("wordList");
+    const words = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+
+    if (words.length === 0) {
+      listContainer.innerHTML = '<div class="empty-state">Nog geen woorden toegevoegd.</div>';
+      return;
+    }
+
+    // Sorteer alfabetisch
+    words.sort();
+
+    listContainer.innerHTML = words.map(word => `
+      <div class="word-item">
+        <span class="word-text">${escapeHtml(word)}</span>
+        <button class="delete-btn" onclick="removeWord('${escapeHtml(word)}')">Verwijder</button>
+      </div>
+    `).join('');
+  }
+
+  function addWord() {
+    const input = document.getElementById("wordInput");
+    const word = input.value.trim();
+
+    if (!word) return;
+
+    let words = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+
+    // Alleen toevoegen als het nog niet bestaat
+    if (!words.map(w => w.toLowerCase()).includes(word.toLowerCase())) {
+      words.push(word);
+      localStorage.setItem("highlightWords", JSON.stringify(words));
+    }
+
+    input.value = "";
+    renderWords();
+  }
+
+  function removeWord(word) {
+    let words = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+    words = words.filter(w => w !== word);
+    localStorage.setItem("highlightWords", JSON.stringify(words));
+    renderWords();
+  }
+
+  // Helper om te voorkomen dat ingevoerde HTML de lijst kapot maakt
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>
