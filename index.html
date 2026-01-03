@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple RSS Reader</title>
+<title>Full‑Text RSS Reader</title>
 
 <style>
   body {
@@ -13,7 +13,7 @@
     background: #f5f5f5;
   }
   .container {
-    max-width: 600px;
+    max-width: 700px;
     margin: auto;
     padding: 20px;
   }
@@ -33,9 +33,6 @@
     border-radius: 6px;
     font-size: 16px;
   }
-  #feed {
-    margin-top: 20px;
-  }
   .item {
     background: white;
     padding: 15px;
@@ -46,9 +43,11 @@
   .item h3 {
     margin: 0 0 10px 0;
   }
-  .item a {
-    text-decoration: none;
-    color: #0078ff;
+  .article {
+    background: white;
+    padding: 20px;
+    margin-top: 20px;
+    border-radius: 6px;
   }
 </style>
 
@@ -56,12 +55,13 @@
 <body>
 
 <div class="container">
-  <h1>RSS Reader</h1>
+  <h1>Full‑Text RSS Reader</h1>
 
-  <input id="feedUrl" type="text" placeholder="Voer RSS-feed URL in (bv. https://www.nu.nl/rss)">
+  <input id="feedUrl" type="text" placeholder="RSS‑feed URL (bv. https://www.nu.nl/rss)">
   <button onclick="loadFeed()">Laad feed</button>
 
   <div id="feed"></div>
+  <div id="article"></div>
 </div>
 
 <script>
@@ -77,7 +77,7 @@ async function loadFeed() {
     const data = await response.json();
 
     if (!data.items) {
-      feedContainer.innerHTML = "Geen items gevonden of feed niet geldig.";
+      feedContainer.innerHTML = "Geen items gevonden.";
       return;
     }
 
@@ -87,14 +87,33 @@ async function loadFeed() {
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
-        <h3><a href="${item.link}" target="_blank">${item.title}</a></h3>
-        <p>${item.description || ""}</p>
+        <h3>${item.title}</h3>
+        <button onclick="loadArticle('${encodeURIComponent(item.link)}')">Lees volledig artikel</button>
       `;
       feedContainer.appendChild(div);
     });
 
   } catch (err) {
     feedContainer.innerHTML = "Kon de feed niet laden.";
+  }
+}
+
+async function loadArticle(url) {
+  const articleContainer = document.getElementById("article");
+  articleContainer.innerHTML = "Artikel laden...";
+
+  try {
+    const response = await fetch(`/api/article?url=${url}`);
+    const data = await response.json();
+
+    articleContainer.innerHTML = `
+      <div class="article">
+        <h2>${data.title}</h2>
+        ${data.content}
+      </div>
+    `;
+  } catch (err) {
+    articleContainer.innerHTML = "Kon het artikel niet laden.";
   }
 }
 </script>
