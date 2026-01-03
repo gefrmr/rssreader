@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RSS Reader – Compact Swipe Edition</title>
+<title>RSS Reader – Swipe & Highlight</title>
 
 <style>
   body {
@@ -17,6 +17,32 @@
     max-width: 700px;
     margin: auto;
     padding: 12px;
+  }
+
+  /* NAVIGATIE BALK */
+  .nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .nav-bar a {
+    text-decoration: none;
+    color: #0078ff;
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* HIGHLIGHT STYLE */
+  mark.custom-highlight {
+    background-color: #ffeb3b;
+    color: #000;
+    padding: 0 2px;
+    border-radius: 3px;
+    border-bottom: 1px solid #fbc02d;
   }
 
   /* COMPACT HEADER */
@@ -33,15 +59,16 @@
     border-radius: 6px;
     border: 1px solid #ccc;
     font-size: 14px;
+    box-sizing: border-box;
   }
 
   button {
     background: #0078ff;
     color: white;
     border: none;
+    cursor: pointer;
   }
 
-  /* FEED LIST */
   .feed-list {
     display: flex;
     flex-direction: column;
@@ -95,7 +122,6 @@
     border-radius: 8px;
   }
 
-  /* ARTICLE */
   #article {
     touch-action: pan-y;
   }
@@ -107,6 +133,7 @@
     border-radius: 12px;
     opacity: 0;
     animation: fadeIn 0.4s forwards;
+    line-height: 1.6;
   }
 
   .article h2 {
@@ -118,24 +145,24 @@
     to { opacity: 1; }
   }
 </style>
-
 </head>
 <body>
 
 <div class="container">
+  <div class="nav-bar">
+    <span>RSS Reader</span>
+    <a href="woorden.html">Woorden Beheren ⚙️</a>
+  </div>
 
   <div class="top">
     <div id="feedList" class="feed-list"></div>
-
     <select id="feedSelect" onchange="loadSelectedFeed()"></select>
-
     <input id="feedUrl" type="text" placeholder="Nieuwe RSS‑feed URL">
     <button onclick="saveFeed()">Feed opslaan</button>
   </div>
 
   <div id="carousel" class="carousel"></div>
   <div id="article"></div>
-
 </div>
 
 <script>
@@ -143,23 +170,37 @@ let items = [];
 let currentIndex = 0;
 
 /* ------------------------------
+   HIGHLIGHT LOGICA
+--------------------------------*/
+function applyHighlights(html, words) {
+  if (!words || words.length === 0) return html;
+
+  // Sorteer woorden op lengte (langste eerst) om deel-matches in chunks te voorkomen
+  const sortedWords = [...words].sort((a, b) => b.length - a.length);
+  
+  // Escapen van speciale karakters voor Regex
+  const pattern = sortedWords
+    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+
+  // Regex die alleen matcht buiten HTML tags (kijkt vooruit naar de volgende '<')
+  const regex = new RegExp(`(${pattern})(?=[^>]*<)`, 'gi');
+
+  return html.replace(regex, (match) => `<mark class="custom-highlight">${match}</mark>`);
+}
+
+/* ------------------------------
    FEED MEMORY + DELETE
 --------------------------------*/
 function renderFeedList() {
   const list = document.getElementById("feedList");
   const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-
   list.innerHTML = "";
 
   feeds.forEach(feed => {
     const row = document.createElement("div");
     row.className = "feed-item";
-
-    row.innerHTML = `
-      <span>${feed}</span>
-      <button onclick="deleteFeed('${feed}')">×</button>
-    `;
-
+    row.innerHTML = `<span>${feed}</span><button onclick="deleteFeed('${feed}')">×</button>`;
     list.appendChild(row);
   });
 }
@@ -167,7 +208,6 @@ function renderFeedList() {
 function loadSavedFeeds() {
   const select = document.getElementById("feedSelect");
   const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-
   select.innerHTML = "";
 
   feeds.forEach(feed => {
@@ -178,23 +218,17 @@ function loadSavedFeeds() {
   });
 
   renderFeedList();
-
-  if (feeds.length > 0) {
-    loadFeed(feeds[0]);
-  }
+  if (feeds.length > 0) loadFeed(feeds[0]);
 }
 
 function saveFeed() {
   const url = document.getElementById("feedUrl").value.trim();
   if (!url) return;
-
   let feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-
   if (!feeds.includes(url)) {
     feeds.push(url);
     localStorage.setItem("rssFeeds", JSON.stringify(feeds));
   }
-
   document.getElementById("feedUrl").value = "";
   loadSavedFeeds();
 }
@@ -217,120 +251,82 @@ function loadSelectedFeed() {
 async function loadFeed(url) {
   const carousel = document.getElementById("carousel");
   carousel.innerHTML = "Laden...";
-
   const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
 
   try {
     const response = await fetch(api);
     const data = await response.json();
-
     if (!data.items) {
       carousel.innerHTML = "Geen items gevonden.";
       return;
     }
-
     items = data.items;
     carousel.innerHTML = "";
-
     items.forEach((item, index) => {
       const slide = document.createElement("div");
       slide.className = "slide";
-
       const thumb = item.thumbnail || item.enclosure?.link || "";
-
-      slide.innerHTML = `
-        ${thumb 
-          ? `<img src="${thumb}" alt="">` 
-          : `<img src="https://via.placeholder.com/120x90?text=No+Img">`
-        }
-      `;
-
+      slide.innerHTML = thumb ? `<img src="${thumb}" alt="">` : `<img src="https://via.placeholder.com/120x90?text=No+Img">`;
       carousel.appendChild(slide);
     });
-
     loadArticle(0);
-
   } catch (err) {
     carousel.innerHTML = "Kon de feed niet laden.";
   }
 }
 
 /* ------------------------------
-   SWIPE IN CAROUSEL
+   SWIPE & CAROUSEL SYNC
 --------------------------------*/
 document.getElementById("carousel").addEventListener("scroll", () => {
   const carousel = document.getElementById("carousel");
-  const slideWidth = carousel.children[0]?.offsetWidth + 10;
-
+  if (!carousel.children[0]) return;
+  const slideWidth = carousel.children[0].offsetWidth + 10;
   const index = Math.round(carousel.scrollLeft / slideWidth);
-
   if (index !== currentIndex && items[index]) {
     currentIndex = index;
     loadArticle(index);
   }
 });
 
-/* ------------------------------
-   SWIPE IN ARTICLE → SYNC CAROUSEL
---------------------------------*/
 let startX = 0;
-
-document.getElementById("article").addEventListener("touchstart", e => {
-  startX = e.touches[0].clientX;
-});
-
+document.getElementById("article").addEventListener("touchstart", e => { startX = e.touches[0].clientX; });
 document.getElementById("article").addEventListener("touchend", e => {
-  const endX = e.changedTouches[0].clientX;
-  const diff = endX - startX;
-
+  const diff = e.changedTouches[0].clientX - startX;
   if (Math.abs(diff) < 50) return;
-
-  if (diff < 0) nextArticle();
-  else prevArticle();
+  diff < 0 ? nextArticle() : prevArticle();
 });
 
-function nextArticle() {
-  if (currentIndex < items.length - 1) {
-    currentIndex++;
-    syncCarousel();
-    loadArticle(currentIndex);
-  }
-}
-
-function prevArticle() {
-  if (currentIndex > 0) {
-    currentIndex--;
-    syncCarousel();
-    loadArticle(currentIndex);
-  }
-}
+function nextArticle() { if (currentIndex < items.length - 1) { currentIndex++; syncCarousel(); loadArticle(currentIndex); } }
+function prevArticle() { if (currentIndex > 0) { currentIndex--; syncCarousel(); loadArticle(currentIndex); } }
 
 function syncCarousel() {
   const carousel = document.getElementById("carousel");
-  const slideWidth = carousel.children[0]?.offsetWidth + 10;
-  carousel.scrollTo({
-    left: currentIndex * slideWidth,
-    behavior: "smooth"
-  });
+  const slideWidth = carousel.children[0].offsetWidth + 10;
+  carousel.scrollTo({ left: currentIndex * slideWidth, behavior: "smooth" });
 }
 
 /* ------------------------------
-   LOAD FULL ARTICLE
+   LOAD FULL ARTICLE + HIGHLIGHT
 --------------------------------*/
 async function loadArticle(index) {
   const articleContainer = document.getElementById("article");
   articleContainer.innerHTML = "Artikel laden...";
-
   const url = encodeURIComponent(items[index].link);
 
   try {
     const response = await fetch(`/api/article?url=${url}`);
     const data = await response.json();
+    
+    // Woorden ophalen voor highlighting
+    const wordsToHighlight = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+    let processedContent = applyHighlights(data.content, wordsToHighlight);
+    let processedTitle = applyHighlights(data.title, wordsToHighlight);
 
     articleContainer.innerHTML = `
       <div class="article">
-        <h2>${data.title}</h2>
-        ${data.content}
+        <h2>${processedTitle}</h2>
+        ${processedContent}
       </div>
     `;
   } catch (err) {
@@ -338,11 +334,7 @@ async function loadArticle(index) {
   }
 }
 
-/* ------------------------------
-   INIT
---------------------------------*/
 loadSavedFeeds();
 </script>
-
 </body>
 </html>
