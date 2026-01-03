@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RSS Reader – Swipe Sync + Feed Delete</title>
+<title>RSS Reader – Compact Swipe Edition</title>
 
 <style>
   body {
@@ -16,7 +16,7 @@
   .container {
     max-width: 700px;
     margin: auto;
-    padding: 15px;
+    padding: 12px;
   }
 
   /* COMPACT HEADER */
@@ -24,7 +24,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   input, button, select {
@@ -41,12 +41,11 @@
     border: none;
   }
 
-  /* FEED LIST WITH DELETE BUTTONS */
+  /* FEED LIST */
   .feed-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 8px;
   }
 
   .feed-item {
@@ -77,29 +76,23 @@
   }
 
   .slide {
-    min-width: 85%;
+    min-width: 70%;
     background: white;
-    padding: 8px;
+    padding: 6px;
     border-radius: 10px;
     scroll-snap-align: center;
     box-shadow: 0 1px 4px rgba(0,0,0,0.15);
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 10px;
-    height: 80px;
+    height: 110px;
   }
 
   .slide img {
-    width: 80px;
-    height: 60px;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 6px;
-  }
-
-  .slide h3 {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.2;
+    border-radius: 8px;
   }
 
   /* ARTICLE */
@@ -110,14 +103,14 @@
   .article {
     background: white;
     padding: 18px;
-    margin-top: 15px;
+    margin-top: 12px;
     border-radius: 12px;
     opacity: 0;
     animation: fadeIn 0.4s forwards;
   }
 
   .article h2 {
-    font-size: 20px;
+    font-size: 18px;
     margin-top: 0;
   }
 
@@ -132,7 +125,7 @@
 <div class="container">
 
   <div class="top">
-    <div class="feed-list" id="feedList"></div>
+    <div id="feedList" class="feed-list"></div>
 
     <select id="feedSelect" onchange="loadSelectedFeed()"></select>
 
@@ -150,7 +143,7 @@ let items = [];
 let currentIndex = 0;
 
 /* ------------------------------
-   MEMORY: RSS FEEDS OPSLAAN + VERWIJDEREN
+   FEED MEMORY + DELETE
 --------------------------------*/
 function renderFeedList() {
   const list = document.getElementById("feedList");
@@ -246,8 +239,10 @@ async function loadFeed(url) {
       const thumb = item.thumbnail || item.enclosure?.link || "";
 
       slide.innerHTML = `
-        ${thumb ? `<img src="${thumb}" alt="">` : `<img src="https://via.placeholder.com/80x60?text=No+Img">`}
-        <h3>${item.title}</h3>
+        ${thumb 
+          ? `<img src="${thumb}" alt="">` 
+          : `<img src="https://via.placeholder.com/120x90?text=No+Img">`
+        }
       `;
 
       carousel.appendChild(slide);
@@ -276,7 +271,7 @@ document.getElementById("carousel").addEventListener("scroll", () => {
 });
 
 /* ------------------------------
-   SWIPE IN ARTIKELVELD
+   SWIPE IN ARTICLE → SYNC CAROUSEL
 --------------------------------*/
 let startX = 0;
 
@@ -310,9 +305,6 @@ function prevArticle() {
   }
 }
 
-/* ------------------------------
-   SYNC CAROUSEL POSITION
---------------------------------*/
 function syncCarousel() {
   const carousel = document.getElementById("carousel");
   const slideWidth = carousel.children[0]?.offsetWidth + 10;
@@ -323,7 +315,7 @@ function syncCarousel() {
 }
 
 /* ------------------------------
-   LAAD VOLLEDIG ARTIKEL
+   LOAD FULL ARTICLE
 --------------------------------*/
 async function loadArticle(index) {
   const articleContainer = document.getElementById("article");
