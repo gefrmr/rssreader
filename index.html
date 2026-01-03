@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple RSS Reader</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+  }
+  .container {
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+  }
+  input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    background: #0078ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+  }
+  #feed {
+    margin-top: 20px;
+  }
+  .item {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .item h3 {
+    margin: 0 0 10px 0;
+  }
+  .item a {
+    text-decoration: none;
+    color: #0078ff;
+  }
+</style>
+
+</head>
+<body>
+
+<div class="container">
+  <h1>RSS Reader</h1>
+
+  <input id="feedUrl" type="text" placeholder="Voer RSS-feed URL in">
+  <button onclick="loadFeed()">Laad feed</button>
+
+  <div id="feed"></div>
+</div>
+
+<script>
+async function loadFeed() {
+  const url = document.getElementById("feedUrl").value;
+  const feedContainer = document.getElementById("feed");
+  feedContainer.innerHTML = "Laden...";
+
+  const api = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+
+  try {
+    const response = await fetch(api);
+    const data = await response.json();
+
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(data.contents, "text/xml");
+
+    const items = xml.querySelectorAll("item");
+    feedContainer.innerHTML = "";
+
+    items.forEach(item => {
+      const title = item.querySelector("title")?.textContent;
+      const link = item.querySelector("link")?.textContent;
+      const description = item.querySelector("description")?.textContent;
+
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <h3><a href="${link}" target="_blank">${title}</a></h3>
+        <p>${description}</p>
+      `;
+      feedContainer.appendChild(div);
+    });
+
+  } catch (err) {
+    feedContainer.innerHTML = "Kon de feed niet laden.";
+  }
+}
+</script>
+
+</body>
+</html>
