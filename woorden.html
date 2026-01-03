@@ -3,208 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Geavanceerd Woordenbeheer</title>
+<title>Instellingen – RSS Reader</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #333; }
   .container { max-width: 700px; margin: auto; padding: 12px; }
-  
-  .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 4px 0; border-bottom: 1px solid #ddd; }
-  .nav-bar a { text-decoration: none; color: #0078ff; font-size: 14px; font-weight: bold; }
-
+  .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px 0; border-bottom: 1px solid #ddd; }
+  .nav-bar a { text-decoration: none; color: #0078ff; font-weight: bold; }
   .card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 16px; }
-  h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 12px; }
-
-  /* CONTROLS */
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-  input, button { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
-  input[type="text"] { flex-grow: 1; }
-  
-  .btn { cursor: pointer; border: none; font-weight: bold; color: white; background: #0078ff; transition: opacity 0.2s; }
-  .btn:hover { opacity: 0.8; }
-  .btn-secondary { background: #6c757d; }
-  .btn-danger { background: #dc3545; }
-  .btn-import { background: #28a745; position: relative; overflow: hidden; }
-  .btn-export { background: #f39c12; }
-  
-  #fileImport { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-
-  .stats { font-size: 12px; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between; }
-
-  /* LIST STYLES */
-  .word-list { max-height: 400px; overflow-y: auto; border-top: 1px solid #eee; }
-  .word-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
-  .word-text { flex-grow: 1; cursor: pointer; padding: 4px; border-radius: 4px; }
-  .word-text:hover { background: #f0f7ff; }
-  .actions { display: flex; gap: 4px; }
-  .small-btn { padding: 4px 8px; font-size: 11px; }
-
-  .search-box { width: 100%; margin-bottom: 12px; border: 1px solid #0078ff; }
+  h2 { font-size: 1.1rem; margin-top: 0; }
+  .toolbar { display: flex; flex-direction: column; gap: 8px; }
+  input { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+  .btn { padding: 10px; cursor: pointer; border: none; font-weight: bold; color: white; background: #0078ff; border-radius: 6px; }
+  .btn-sync { background: #28a745; }
+  .label { font-size: 12px; font-weight: bold; color: #666; margin-top: 5px; }
 </style>
 </head>
 <body>
-
 <div class="container">
   <div class="nav-bar">
     <a href="index.html">← Terug naar Reader</a>
-    <span>Geavanceerde Instellingen</span>
+    <span>Cloud Sync Instellingen</span>
   </div>
 
   <div class="card">
-    <h2>Nieuwe termen & Bestanden</h2>
+    <h2>Cloud Synchronisatie</h2>
+    <p style="font-size: 13px;">Publiceer je Google Sheets tabbladen als CSV en plak de links hieronder.</p>
     <div class="toolbar">
-      <input id="wordInput" type="text" placeholder="Woord of chunk (bijv. in de gloria)..." onkeypress="if(event.key==='Enter') addWord()">
-      <button class="btn" onclick="addWord()">Voeg toe</button>
+      <div class="label">Google Sheet CSV URL - Woorden/Chunks:</div>
+      <input id="syncSheetUrl" type="text" placeholder="https://docs.google.com/spreadsheets/...pub?gid=0&output=csv">
       
-      <button class="btn btn-import">
-        TSV Import
-        <input type="file" id="fileImport" accept=".tsv,.txt" onchange="handleImport(event)">
-      </button>
-
-      <button class="btn btn-export" onclick="exportToTSV()">TSV Export</button>
+      <div class="label">Google Sheet CSV URL - RSS Feeds:</div>
+      <input id="syncFeedUrl" type="text" placeholder="https://docs.google.com/spreadsheets/...pub?gid=123&output=csv">
+      
+      <button class="btn btn-sync" onclick="saveAndSync()">Instellingen Opslaan & Sync 🔄</button>
     </div>
   </div>
-
-  <div class="card">
-    <h2>Mijn Woordenlijst</h2>
-    
-    <input id="searchBox" type="text" class="search-box" placeholder="Zoeken in lijst..." oninput="renderWords()">
-    
-    <div class="stats">
-      <span id="wordCount">0 woorden</span>
-      <div class="actions">
-        <button class="btn btn-secondary small-btn" onclick="sortList()">Sorteren A-Z</button>
-        <button class="btn btn-secondary small-btn" onclick="cleanDuplicates()">Dubbels wissen</button>
-        <button class="btn btn-danger small-btn" onclick="clearAll()">Alles wissen</button>
-      </div>
-    </div>
-
-    <div id="wordList" class="word-list"></div>
-  </div>
+  
+  <p style="font-size: 12px; color: #888; text-align: center;">De Reader zal bij elke start deze lijsten automatisch verversen.</p>
 </div>
 
 <script>
-  let highlightWords = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById("syncSheetUrl").value = localStorage.getItem("syncSheetUrl") || "";
+    document.getElementById("syncFeedUrl").value = localStorage.getItem("syncFeedUrl") || "";
+  });
 
-  function renderWords() {
-    const listContainer = document.getElementById("wordList");
-    const searchVal = document.getElementById("searchBox").value.toLowerCase();
-    const filtered = highlightWords.filter(w => w.toLowerCase().includes(searchVal));
+  function saveAndSync() {
+    const sUrl = document.getElementById("syncSheetUrl").value.trim();
+    const fUrl = document.getElementById("syncFeedUrl").value.trim();
     
-    document.getElementById("wordCount").textContent = `${filtered.length} woorden gevonden`;
-
-    if (filtered.length === 0) {
-      listContainer.innerHTML = '<div style="padding:20px; color:#999; text-align:center;">Geen woorden gevonden.</div>';
-      return;
-    }
-
-    listContainer.innerHTML = filtered.map((word) => `
-      <div class="word-item">
-        <span class="word-text" onclick="editWord('${word.replace(/'/g, "\\'")}')">${escapeHtml(word)}</span>
-        <div class="actions">
-          <button class="btn btn-danger small-btn" onclick="removeWord('${word.replace(/'/g, "\\'")}')">×</button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  function addWord() {
-    const input = document.getElementById("wordInput");
-    const val = input.value.trim();
-    if (val) {
-      highlightWords.push(val);
-      saveAndRender();
-      input.value = "";
-    }
-  }
-
-  function editWord(oldWord) {
-    const newWord = prompt("Bewerk woord of chunk:", oldWord);
-    if (newWord !== null && newWord.trim() !== "") {
-      const idx = highlightWords.indexOf(oldWord);
-      if (idx !== -1) {
-        highlightWords[idx] = newWord.trim();
-        saveAndRender();
-      }
-    }
-  }
-
-  function removeWord(word) {
-    highlightWords = highlightWords.filter(w => w !== word);
-    saveAndRender();
-  }
-
-  // TSV IMPORT
-  function handleImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const content = e.target.result;
-      // Split op nieuwe regels of tabs
-      const newWords = content.split(/[\r\n\t]+/).map(w => w.trim()).filter(w => w.length > 0);
-      highlightWords = [...highlightWords, ...newWords];
-      cleanDuplicates();
-      alert(`${newWords.length} termen toegevoegd en gecontroleerd op duplicaten.`);
-    };
-    reader.readAsText(file);
-    event.target.value = ""; // Reset input
-  }
-
-  // TSV EXPORT (Nieuwe functie)
-  function exportToTSV() {
-    if (highlightWords.length === 0) {
-      alert("Lijst is leeg, niets om te exporteren.");
-      return;
-    }
-
-    // Maak een string waarbij elke term op een nieuwe regel staat
-    const content = highlightWords.join('\n');
-    const blob = new Blob([content], { type: 'text/tab-separated-values' });
-    const url = URL.createObjectURL(blob);
+    localStorage.setItem("syncSheetUrl", sUrl);
+    localStorage.setItem("syncFeedUrl", fUrl);
     
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rss-highlights-${new Date().toISOString().slice(0,10)}.tsv`;
-    document.body.appendChild(a);
-    a.click();
-    
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    alert("URL's opgeslagen. Ga terug naar de Reader om de synchronisatie te starten.");
   }
-
-  function cleanDuplicates() {
-    const uniqueMap = new Map();
-    highlightWords.forEach(w => uniqueMap.set(w.toLowerCase(), w));
-    highlightWords = Array.from(uniqueMap.values());
-    saveAndRender();
-  }
-
-  function sortList() {
-    highlightWords.sort((a, b) => a.localeCompare(b, 'nl', { sensitivity: 'base' }));
-    saveAndRender();
-  }
-
-  function clearAll() {
-    if (confirm("Weet je zeker dat je de HELE lijst wilt wissen?")) {
-      highlightWords = [];
-      saveAndRender();
-    }
-  }
-
-  function saveAndRender() {
-    localStorage.setItem("highlightWords", JSON.stringify(highlightWords));
-    renderWords();
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  renderWords();
 </script>
-
 </body>
 </html>
