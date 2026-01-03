@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RSS Reader – Compact + Swipe Everywhere</title>
+<title>RSS Reader – Swipe Sync + Feed Delete</title>
 
 <style>
   body {
@@ -39,6 +39,31 @@
     background: #0078ff;
     color: white;
     border: none;
+  }
+
+  /* FEED LIST WITH DELETE BUTTONS */
+  .feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .feed-item {
+    display: flex;
+    justify-content: space-between;
+    background: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  .feed-item button {
+    width: auto;
+    padding: 4px 8px;
+    background: #ff4d4d;
+    font-size: 12px;
   }
 
   /* SWIPE CAROUSEL */
@@ -92,7 +117,7 @@
   }
 
   .article h2 {
-    font-size: 20px; /* kleiner zoals gevraagd */
+    font-size: 20px;
     margin-top: 0;
   }
 
@@ -107,7 +132,10 @@
 <div class="container">
 
   <div class="top">
+    <div class="feed-list" id="feedList"></div>
+
     <select id="feedSelect" onchange="loadSelectedFeed()"></select>
+
     <input id="feedUrl" type="text" placeholder="Nieuwe RSS‑feed URL">
     <button onclick="saveFeed()">Feed opslaan</button>
   </div>
@@ -122,8 +150,27 @@ let items = [];
 let currentIndex = 0;
 
 /* ------------------------------
-   MEMORY: RSS FEEDS OPSLAAN
+   MEMORY: RSS FEEDS OPSLAAN + VERWIJDEREN
 --------------------------------*/
+function renderFeedList() {
+  const list = document.getElementById("feedList");
+  const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
+
+  list.innerHTML = "";
+
+  feeds.forEach(feed => {
+    const row = document.createElement("div");
+    row.className = "feed-item";
+
+    row.innerHTML = `
+      <span>${feed}</span>
+      <button onclick="deleteFeed('${feed}')">×</button>
+    `;
+
+    list.appendChild(row);
+  });
+}
+
 function loadSavedFeeds() {
   const select = document.getElementById("feedSelect");
   const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
@@ -136,6 +183,8 @@ function loadSavedFeeds() {
     option.textContent = feed;
     select.appendChild(option);
   });
+
+  renderFeedList();
 
   if (feeds.length > 0) {
     loadFeed(feeds[0]);
@@ -154,6 +203,13 @@ function saveFeed() {
   }
 
   document.getElementById("feedUrl").value = "";
+  loadSavedFeeds();
+}
+
+function deleteFeed(url) {
+  let feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
+  feeds = feeds.filter(f => f !== url);
+  localStorage.setItem("rssFeeds", JSON.stringify(feeds));
   loadSavedFeeds();
 }
 
@@ -241,6 +297,7 @@ document.getElementById("article").addEventListener("touchend", e => {
 function nextArticle() {
   if (currentIndex < items.length - 1) {
     currentIndex++;
+    syncCarousel();
     loadArticle(currentIndex);
   }
 }
@@ -248,8 +305,21 @@ function nextArticle() {
 function prevArticle() {
   if (currentIndex > 0) {
     currentIndex--;
+    syncCarousel();
     loadArticle(currentIndex);
   }
+}
+
+/* ------------------------------
+   SYNC CAROUSEL POSITION
+--------------------------------*/
+function syncCarousel() {
+  const carousel = document.getElementById("carousel");
+  const slideWidth = carousel.children[0]?.offsetWidth + 10;
+  carousel.scrollTo({
+    left: currentIndex * slideWidth,
+    behavior: "smooth"
+  });
 }
 
 /* ------------------------------
