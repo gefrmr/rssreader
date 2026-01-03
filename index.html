@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RSS Reader – Swipe + Settings + Highlights</title>
+<title>RSS Reader – Compact Swipe Edition</title>
 
 <style>
   body {
@@ -19,25 +19,6 @@
     padding: 12px;
   }
 
-  /* PAGE SWITCH */
-  .page { display: none; }
-  .page.active { display: block; }
-
-  nav {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-
-  nav button {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: none;
-    background: #0078ff;
-    color: white;
-    font-size: 14px;
-  }
-
   /* COMPACT HEADER */
   .top {
     display: flex;
@@ -46,7 +27,7 @@
     margin-bottom: 8px;
   }
 
-  input, button, select, textarea {
+  input, button, select {
     width: 100%;
     padding: 8px;
     border-radius: 6px;
@@ -136,13 +117,6 @@
   @keyframes fadeIn {
     to { opacity: 1; }
   }
-
-  /* HIGHLIGHT */
-  .hl {
-    background: yellow;
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
 </style>
 
 </head>
@@ -150,56 +124,23 @@
 
 <div class="container">
 
-  <!-- NAVIGATION -->
-  <nav>
-    <button onclick="showPage('reader')">📄 Reader</button>
-    <button onclick="showPage('settings')">⚙️ Settings</button>
-  </nav>
+  <div class="top">
+    <div id="feedList" class="feed-list"></div>
 
-  <!-- READER PAGE -->
-  <div id="reader" class="page active">
+    <select id="feedSelect" onchange="loadSelectedFeed()"></select>
 
-    <div class="top">
-      <div id="feedList" class="feed-list"></div>
-
-      <select id="feedSelect" onchange="loadSelectedFeed()"></select>
-
-      <input id="feedUrl" type="text" placeholder="Nieuwe RSS‑feed URL">
-      <button onclick="saveFeed()">Feed opslaan</button>
-    </div>
-
-    <div id="carousel" class="carousel"></div>
-    <div id="article"></div>
-
+    <input id="feedUrl" type="text" placeholder="Nieuwe RSS‑feed URL">
+    <button onclick="saveFeed()">Feed opslaan</button>
   </div>
 
-  <!-- SETTINGS PAGE -->
-  <div id="settings" class="page">
-
-    <h2>Highlight‑termen</h2>
-
-    <textarea id="tsvInput" rows="6" placeholder="Plak hier je TSV (één term per lijn)"></textarea>
-    <button onclick="importTSV()">Importeren</button>
-
-    <h3>Huidige termen</h3>
-    <ul id="termList"></ul>
-
-  </div>
+  <div id="carousel" class="carousel"></div>
+  <div id="article"></div>
 
 </div>
 
 <script>
 let items = [];
 let currentIndex = 0;
-
-/* ------------------------------
-   PAGE SWITCH
---------------------------------*/
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  if (id === "settings") renderTermList();
-}
 
 /* ------------------------------
    FEED MEMORY + DELETE
@@ -374,36 +315,6 @@ function syncCarousel() {
 }
 
 /* ------------------------------
-   SAFE HIGHLIGHT ENGINE
---------------------------------*/
-function highlightTerms(html) {
-  const terms = JSON.parse(localStorage.getItem("terms") || "[]");
-  if (terms.length === 0) return html;
-
-  const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regex = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
-
-  const container = document.createElement("div");
-  container.innerHTML = html;
-
-  function walk(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const original = node.textContent;
-      if (regex.test(original)) {
-        const span = document.createElement("span");
-        span.innerHTML = original.replace(regex, m => `<span class="hl">${m}</span>`);
-        node.replaceWith(...span.childNodes);
-      }
-      return;
-    }
-    node.childNodes.forEach(walk);
-  }
-
-  walk(container);
-  return container.innerHTML;
-}
-
-/* ------------------------------
    LOAD FULL ARTICLE
 --------------------------------*/
 async function loadArticle(index) {
@@ -416,45 +327,15 @@ async function loadArticle(index) {
     const response = await fetch(`/api/article?url=${url}`);
     const data = await response.json();
 
-    const highlighted = highlightTerms(data.content);
-
     articleContainer.innerHTML = `
       <div class="article">
         <h2>${data.title}</h2>
-        ${highlighted}
+        ${data.content}
       </div>
     `;
   } catch (err) {
     articleContainer.innerHTML = "Kon het artikel niet laden.";
   }
-}
-
-/* ------------------------------
-   SETTINGS: TSV IMPORT
---------------------------------*/
-function importTSV() {
-  const text = document.getElementById("tsvInput").value.trim();
-  if (!text) return;
-
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-
-  localStorage.setItem("terms", JSON.stringify(lines));
-
-  document.getElementById("tsvInput").value = "";
-  renderTermList();
-}
-
-function renderTermList() {
-  const list = document.getElementById("termList");
-  const terms = JSON.parse(localStorage.getItem("terms") || "[]");
-
-  list.innerHTML = "";
-
-  terms.forEach(term => {
-    const li = document.createElement("li");
-    li.textContent = term;
-    list.appendChild(li);
-  });
 }
 
 /* ------------------------------
