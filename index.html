@@ -3,54 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RSS Reader – Swipe & Highlight</title>
-
+<title>RSS Reader – Cloud Sync Edition</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
   .container { max-width: 700px; margin: auto; padding: 12px; }
-  
-  .nav-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding: 4px 0;
-    border-bottom: 1px solid #ddd;
-  }
+  .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 4px 0; border-bottom: 1px solid #ddd; }
   .nav-bar a { text-decoration: none; color: #0078ff; font-size: 14px; font-weight: bold; }
-
-  mark.custom-highlight {
-    background-color: #ffeb3b;
-    color: #000;
-    padding: 0 1px;
-    border-radius: 2px;
-  }
-
-  .top { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  input, button, select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box; }
-  button { background: #0078ff; color: white; border: none; cursor: pointer; }
-
-  .feed-list { display: flex; flex-direction: column; gap: 4px; }
-  .feed-item { display: flex; justify-content: space-between; background: white; padding: 6px 10px; border-radius: 6px; align-items: center; font-size: 14px; }
-  .feed-item button { width: auto; padding: 4px 8px; background: #ff4d4d; font-size: 12px; }
-
-  .carousel { display: flex; overflow-x: scroll; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; gap: 10px; padding: 10px 0; }
-  .slide { min-width: 70%; background: white; padding: 6px; border-radius: 10px; scroll-snap-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.15); display: flex; justify-content: center; align-items: center; height: 110px; }
+  #syncStatus { font-size: 10px; color: #888; margin-left: 8px; }
+  mark.custom-highlight { background-color: #ffeb3b; color: #000; padding: 0 1px; border-radius: 2px; }
+  select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; background: white; margin-bottom: 10px; }
+  .carousel { display: flex; overflow-x: scroll; scroll-snap-type: x mandatory; gap: 10px; padding: 10px 0; -webkit-overflow-scrolling: touch; }
+  .slide { min-width: 75%; background: white; padding: 6px; border-radius: 10px; scroll-snap-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.15); height: 120px; display: flex; align-items: center; justify-content: center; }
   .slide img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
-
-  #article { touch-action: pan-y; }
-  .article {
-    background: white;
-    padding: 18px;
-    margin-top: 12px;
-    border-radius: 12px;
-    opacity: 0;
-    animation: fadeIn 0.4s forwards;
-    line-height: 1.25; /* Kortere regelafstand */
-  }
-  .article h2 { font-size: 18px; margin-top: 0; margin-bottom: 10px; line-height: 1.2; }
-  .article p { margin-bottom: 8px; }
-
+  .article { background: white; padding: 20px; margin-top: 12px; border-radius: 12px; line-height: 1.25; font-size: 15px; opacity: 0; animation: fadeIn 0.4s forwards; }
+  .article h2 { font-size: 18px; margin-top: 0; line-height: 1.2; }
   @keyframes fadeIn { to { opacity: 1; } }
 </style>
 </head>
@@ -58,17 +24,11 @@
 
 <div class="container">
   <div class="nav-bar">
-    <span>RSS Reader</span>
-    <a href="woorden.html">Woorden Beheren ⚙️</a>
+    <div><strong>Reader</strong><span id="syncStatus"></span></div>
+    <a href="woorden.html">Instellingen ⚙️</a>
   </div>
 
-  <div class="top">
-    <div id="feedList" class="feed-list"></div>
-    <select id="feedSelect" onchange="loadSelectedFeed()"></select>
-    <input id="feedUrl" type="text" placeholder="Nieuwe RSS‑feed URL">
-    <button onclick="saveFeed()">Feed opslaan</button>
-  </div>
-
+  <select id="feedSelect" onchange="loadSelectedFeed()"></select>
   <div id="carousel" class="carousel"></div>
   <div id="article"></div>
 </div>
@@ -77,129 +37,81 @@
 let items = [];
 let currentIndex = 0;
 
-function applyHighlights(html, words) {
-  if (!words || words.length === 0) return html;
-  const sortedWords = [...words].sort((a, b) => b.length - a.length);
-  const pattern = sortedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  // De \\b zorgt voor de "perfect match" (geen matches binnen andere woorden)
-  const regex = new RegExp(`\\b(${pattern})\\b(?=[^>]*<)`, 'gi');
-  return html.replace(regex, (match) => `<mark class="custom-highlight">${match}</mark>`);
+async function fetchCloudData(url) {
+  if (!url) return [];
+  try {
+    const resp = await fetch(url);
+    const text = await resp.text();
+    return text.split(/[\r\n]+/).map(row => row.replace(/^"|"$/g, '').trim()).filter(row => row.length > 0);
+  } catch (e) { return null; }
 }
 
-function renderFeedList() {
-  const list = document.getElementById("feedList");
-  const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-  list.innerHTML = "";
-  feeds.forEach(feed => {
-    const row = document.createElement("div");
-    row.className = "feed-item";
-    row.innerHTML = `<span>${feed}</span><button onclick="deleteFeed('${feed}')">×</button>`;
-    list.appendChild(row);
-  });
+async function startSync() {
+  const statusEl = document.getElementById("syncStatus");
+  statusEl.textContent = "(Syncing...)";
+
+  const wordUrl = localStorage.getItem("syncSheetUrl");
+  const feedUrl = localStorage.getItem("syncFeedUrl");
+
+  const [words, feeds] = await Promise.all([fetchCloudData(wordUrl), fetchCloudData(feedUrl)]);
+
+  if (words) localStorage.setItem("highlightWords", JSON.stringify(words));
+  if (feeds) localStorage.setItem("rssFeeds", JSON.stringify(feeds));
+
+  statusEl.textContent = words && feeds ? "(Cloud OK)" : "(Offline mode)";
+}
+
+function applyHighlights(html, words) {
+  if (!words || words.length === 0) return html;
+  const pattern = [...words].sort((a,b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const regex = new RegExp(`\\b(${pattern})\\b(?=[^>]*<)`, 'gi');
+  return html.replace(regex, (match) => `<mark class="custom-highlight">${match}</mark>`);
 }
 
 function loadSavedFeeds() {
   const select = document.getElementById("feedSelect");
   const feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-  select.innerHTML = "";
-  feeds.forEach(feed => {
-    const option = document.createElement("option");
-    option.value = feed;
-    option.textContent = feed;
-    select.appendChild(option);
-  });
-  renderFeedList();
+  select.innerHTML = feeds.map(f => `<option value="${f}">${f}</option>`).join('');
   if (feeds.length > 0) loadFeed(feeds[0]);
-}
-
-function saveFeed() {
-  const url = document.getElementById("feedUrl").value.trim();
-  if (!url) return;
-  let feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-  if (!feeds.includes(url)) {
-    feeds.push(url);
-    localStorage.setItem("rssFeeds", JSON.stringify(feeds));
-  }
-  document.getElementById("feedUrl").value = "";
-  loadSavedFeeds();
-}
-
-function deleteFeed(url) {
-  let feeds = JSON.parse(localStorage.getItem("rssFeeds") || "[]");
-  feeds = feeds.filter(f => f !== url);
-  localStorage.setItem("rssFeeds", JSON.stringify(feeds));
-  loadSavedFeeds();
-}
-
-function loadSelectedFeed() {
-  const url = document.getElementById("feedSelect").value;
-  loadFeed(url);
 }
 
 async function loadFeed(url) {
   const carousel = document.getElementById("carousel");
   carousel.innerHTML = "Laden...";
-  const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
   try {
-    const response = await fetch(api);
-    const data = await response.json();
-    if (!data.items) { carousel.innerHTML = "Geen items gevonden."; return; }
-    items = data.items;
-    carousel.innerHTML = "";
-    items.forEach((item, index) => {
-      const slide = document.createElement("div");
-      slide.className = "slide";
-      const thumb = item.thumbnail || item.enclosure?.link || "";
-      slide.innerHTML = thumb ? `<img src="${thumb}" alt="">` : `<img src="https://via.placeholder.com/120x90?text=No+Img">`;
-      carousel.appendChild(slide);
-    });
+    const resp = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+    const data = await resp.json();
+    items = data.items || [];
+    carousel.innerHTML = items.map(item => `<div class="slide"><img src="${item.thumbnail || item.enclosure?.link || 'https://via.placeholder.com/150'}"></div>`).join('');
     loadArticle(0);
-  } catch (err) { carousel.innerHTML = "Kon de feed niet laden."; }
+  } catch (e) { carousel.innerHTML = "Fout bij laden."; }
 }
 
-document.getElementById("carousel").addEventListener("scroll", () => {
-  const carousel = document.getElementById("carousel");
-  if (!carousel.children[0]) return;
-  const slideWidth = carousel.children[0].offsetWidth + 10;
-  const index = Math.round(carousel.scrollLeft / slideWidth);
-  if (index !== currentIndex && items[index]) {
-    currentIndex = index;
-    loadArticle(index);
-  }
-});
-
-let startX = 0;
-document.getElementById("article").addEventListener("touchstart", e => { startX = e.touches[0].clientX; });
-document.getElementById("article").addEventListener("touchend", e => {
-  const diff = e.changedTouches[0].clientX - startX;
-  if (Math.abs(diff) < 50) return;
-  diff < 0 ? nextArticle() : prevArticle();
-});
-
-function nextArticle() { if (currentIndex < items.length - 1) { currentIndex++; syncCarousel(); loadArticle(currentIndex); } }
-function prevArticle() { if (currentIndex > 0) { currentIndex--; syncCarousel(); loadArticle(currentIndex); } }
-
-function syncCarousel() {
-  const carousel = document.getElementById("carousel");
-  const slideWidth = carousel.children[0].offsetWidth + 10;
-  carousel.scrollTo({ left: currentIndex * slideWidth, behavior: "smooth" });
-}
+function loadSelectedFeed() { loadFeed(document.getElementById("feedSelect").value); }
 
 async function loadArticle(index) {
-  const articleContainer = document.getElementById("article");
-  articleContainer.innerHTML = "Artikel laden...";
-  const url = encodeURIComponent(items[index].link);
+  const container = document.getElementById("article");
+  container.innerHTML = "Laden...";
   try {
-    const response = await fetch(`/api/article?url=${url}`);
-    const data = await response.json();
-    const wordsToHighlight = JSON.parse(localStorage.getItem("highlightWords") || "[]");
-    let processedContent = applyHighlights(data.content, wordsToHighlight);
-    let processedTitle = applyHighlights(data.title, wordsToHighlight);
-    articleContainer.innerHTML = `<div class="article"><h2>${processedTitle}</h2>${processedContent}</div>`;
-  } catch (err) { articleContainer.innerHTML = "Kon het artikel niet laden."; }
+    const resp = await fetch(`/api/article?url=${encodeURIComponent(items[index].link)}`);
+    const data = await resp.json();
+    const words = JSON.parse(localStorage.getItem("highlightWords") || "[]");
+    container.innerHTML = `<h2>${applyHighlights(data.title, words)}</h2>${applyHighlights(data.content, words)}`;
+  } catch (e) { container.innerHTML = "Fout."; }
 }
 
-loadSavedFeeds();
+// Swipe & Sync Logic
+document.getElementById("carousel").onscroll = () => {
+  const slideWidth = document.querySelector(".slide")?.offsetWidth + 10;
+  const index = Math.round(document.getElementById("carousel").scrollLeft / slideWidth);
+  if (index !== currentIndex && items[index]) { currentIndex = index; loadArticle(index); }
+};
+
+async function init() {
+  await startSync();
+  loadSavedFeeds();
+}
+init();
 </script>
 </body>
 </html>
