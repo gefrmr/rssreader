@@ -13,44 +13,15 @@ export default async function handler(req, res) {
     const html = await response.text();
 
     const dom = new JSDOM(html, { url });
-    const doc = dom.window.document;
-
-    // 1. Probeer Readability
-    const reader = new Readability(doc);
+    const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
-    if (article && article.content) {
-      return res.status(200).json({
-        title: article.title || "Artikel",
-        content: article.content
-      });
-    }
-
-    // 2. Fallback: probeer <article> tags
-    const articleTag = doc.querySelector("article");
-    if (articleTag) {
-      return res.status(200).json({
-        title: doc.title || "Artikel",
-        content: articleTag.innerHTML
-      });
-    }
-
-    // 3. Fallback: toon hele body
-    const body = doc.querySelector("body");
-    if (body) {
-      return res.status(200).json({
-        title: doc.title || "Artikel",
-        content: body.innerHTML
-      });
-    }
-
-    // 4. Fallback: toon tekstversie
-    return res.status(200).json({
-      title: doc.title || "Artikel",
-      content: `<p>${doc.body.textContent}</p>`
+    res.status(200).json({
+      title: article.title,
+      content: article.content
     });
 
   } catch (err) {
-    return res.status(500).json({ error: "Kon artikel niet ophalen" });
+    res.status(500).json({ error: "Kon artikel niet ophalen" });
   }
 }
