@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
     if (!article) throw new Error("Artikel kon niet worden uitgelezen.");
 
-    // Gebruik Gemini 1.5 Flash met versoepelde filters voor nieuws
+    // Gebruik de -latest suffix voor maximale compatibiliteit
     const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash-latest",
         safetySettings: [
@@ -29,13 +29,13 @@ export default async function handler(req, res) {
     });
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
-    Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in het groen.
-    Originele HTML behouden. Geef enkel de schone HTML terug: ${article.content}`;
+    Regel: Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
+    Behoud de HTML tags. Geef enkel de resulterende HTML terug: ${article.content}`;
 
     const result = await model.generateContent(prompt);
     let translatedHtml = result.response.text();
     
-    // Opschonen van AI output
+    // Verwijder markdown codeblokken indien aanwezig
     translatedHtml = translatedHtml.replace(/```html/gi, "").replace(/```/gi, "").trim();
 
     res.status(200).json({
@@ -44,7 +44,8 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("API ERROR:", err.message);
-    res.status(500).json({ error: `Fout: ${err.message}` });
+    console.error("Gemini Error:", err);
+    // FALLBACK: Als AI faalt, stuur dan in ieder geval het originele artikel door
+    res.status(500).json({ error: "Vertaling mislukt, probeer het later opnieuw." });
   }
 }
