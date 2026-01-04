@@ -91,13 +91,30 @@ function loadSelectedFeed() { loadFeed(document.getElementById("feedSelect").val
 
 async function loadArticle(index) {
   const container = document.getElementById("article");
-  container.innerHTML = "Laden...";
+  // Visuele feedback voor de gebruiker
+  container.innerHTML = `
+    <div style="text-align:center; padding: 20px;">
+      <p>🇧🇷 Gemini AI vertaalt nu zin-per-zin naar PT-BR...</p>
+      <div class="loader"></div> 
+    </div>
+  `;
+
   try {
     const resp = await fetch(`/api/article?url=${encodeURIComponent(items[index].link)}`);
     const data = await resp.json();
+    
+    if (data.error) throw new Error(data.error);
+
     const words = JSON.parse(localStorage.getItem("highlightWords") || "[]");
-    container.innerHTML = `<h2>${applyHighlights(data.title, words)}</h2>${applyHighlights(data.content, words)}`;
-  } catch (e) { container.innerHTML = "Fout."; }
+    
+    // De highlights worden toegepast op de gecombineerde tekst
+    const finalTitle = applyHighlights(data.title, words);
+    const finalContent = applyHighlights(data.content, words);
+
+    container.innerHTML = `<div class="article"><h2>${finalTitle}</h2>${finalContent}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="article"><p>Fout bij laden: ${e.message}</p></div>`;
+  }
 }
 
 // Swipe & Sync Logic
@@ -115,3 +132,4 @@ init();
 </script>
 </body>
 </html>
+
