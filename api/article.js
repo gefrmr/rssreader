@@ -21,7 +21,16 @@ export default async function handler(req, res) {
     if (!article) throw new Error("Kon artikel niet parsen");
 
     // 3. Initialiseer Gemini 1.5 Flash
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+      // Voeg dit toe om blokkades te minimaliseren:
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ]
+    });
 
     // 4. De Prompt voor zin-per-zin vertaling
     const prompt = `
