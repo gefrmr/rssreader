@@ -17,14 +17,14 @@ export default async function handler(req, res) {
 
     if (!article) throw new Error("Kon artikel tekst niet extraheren.");
 
-    // Gebruik v1 API voor stabiliteit
+    // We gebruiken de specifieke versie-ID die bijna overal ondersteund wordt
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash" 
-    }, { apiVersion: 'v1' });
+        model: "gemini-1.5-flash-001" 
+    }); 
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
-    Regel: Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
-    Behoud alle HTML tags. Geef enkel de resulterende HTML terug: 
+    Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
+    Behoud de HTML tags. Geef enkel de resulterende HTML terug: 
     ${article.content}`;
 
     const result = await model.generateContent(prompt);
