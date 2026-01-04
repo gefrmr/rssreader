@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     if (!article) throw new Error("Kon artikel niet parsen.");
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${apiKey}`;
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
     Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
