@@ -2,22 +2,25 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 export default async function handler(req, res) {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: "URL ontbreekt" });
 
   try {
+    // 1. Check of de sleutel er wel is
+    if (!process.env.GEMINI_API_KEY) {
+       return res.status(500).json({ error: "Systeemfout: API Key niet geconfigureerd op server." });
+    }
+
     const response = await fetch(decodeURIComponent(url));
     const html = await response.text();
     const dom = new JSDOM(html, { url: decodeURIComponent(url) });
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
-    if (!article) throw new Error("Artikel kon niet worden uitgelezen.");
+    if (!article) throw new Error("De tekst van dit artikel kon niet worden opgehaald.");
 
-    // Gebruik de -latest suffix voor maximale compatibiliteit
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash-latest",
         safetySettings: [
@@ -29,13 +32,14 @@ export default async function handler(req, res) {
     });
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
-    Regel: Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
-    Behoud de HTML tags. Geef enkel de resulterende HTML terug: ${article.content}`;
+    Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
+    Geef enkel de resulterende HTML terug: ${article.content}`;
 
+    // Probeer de AI aan te roepen
     const result = await model.generateContent(prompt);
-    let translatedHtml = result.response.text();
+    const aiResponse = await result.response;
+    let translatedHtml = aiResponse.text();
     
-    // Verwijder markdown codeblokken indien aanwezig
     translatedHtml = translatedHtml.replace(/```html/gi, "").replace(/```/gi, "").trim();
 
     res.status(200).json({
@@ -44,8 +48,8 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("Gemini Error:", err);
-    // FALLBACK: Als AI faalt, stuur dan in ieder geval het originele artikel door
-    res.status(500).json({ error: "Vertaling mislukt, probeer het later opnieuw." });
+    // Hier vangen we de specifieke foutmelding van Google op
+    console.error("DEBUG ERROR:", err);
+    res.status(500).json({ error: `AI Fout: ${err.message || "Onbekende fout"}` });
   }
 }
