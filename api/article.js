@@ -15,7 +15,9 @@ export default async function handler(req, res) {
     if (!article) throw new Error("Kon artikel niet parsen.");
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+    
+    // VERSIE 1 STABLE URL (GEEN BETA)
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
     Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
@@ -32,8 +34,17 @@ export default async function handler(req, res) {
 
     const data = await geminiResponse.json();
 
+    // Als de API een error object teruggeeft
     if (data.error) {
-      throw new Error(data.error.message);
+       // Als dit een 404 is, proberen we een allerlaatste alternatieve naam
+       if (data.error.code === 404) {
+          throw new Error("Model niet gevonden. Ga naar Google AI Studio en controleer of je 'Generative Language API' hebt ingeschakeld voor dit project.");
+       }
+       throw new Error(data.error.message);
+    }
+
+    if (!data.candidates || !data.candidates[0]) {
+       throw new Error("AI gaf geen resultaat terug. Mogelijk is de tekst te lang of geblokkeerd.");
     }
 
     let translatedHtml = data.candidates[0].content.parts[0].text;
