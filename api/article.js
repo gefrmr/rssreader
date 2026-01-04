@@ -1,8 +1,5 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export default async function handler(req, res) {
   const url = req.query.url;
@@ -15,23 +12,31 @@ export default async function handler(req, res) {
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
-    if (!article) throw new Error("Kon artikel tekst niet extraheren.");
+    if (!article) throw new Error("Kon artikel niet parsen.");
 
-    // We gebruiken de specifieke versie-ID die bijna overal ondersteund wordt
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-001" 
-    }); 
+    const apiKey = process.env.GEMINI_API_KEY;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `Vertaal de volgende HTML naar Portugees-Braziliaans (PT-BR). 
     Zet de vertaling onmiddellijk na elke zin tussen haakjes, cursief en in de kleur #2e7d32.
-    Behoud de HTML tags. Geef enkel de resulterende HTML terug: 
+    Behoud alle HTML tags. Geef enkel de schone HTML terug: 
     ${article.content}`;
 
-    const result = await model.generateContent(prompt);
-    const aiResponse = await result.response;
-    let translatedHtml = aiResponse.text();
-    
-    // Verwijder mogelijke markdown blokken
+    const geminiResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    const data = await geminiResponse.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    let translatedHtml = data.candidates[0].content.parts[0].text;
     translatedHtml = translatedHtml.replace(/```html/gi, "").replace(/```/gi, "").trim();
 
     res.status(200).json({
